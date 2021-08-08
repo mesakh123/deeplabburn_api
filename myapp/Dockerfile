@@ -13,7 +13,7 @@ RUN apt-get install 'ffmpeg'\
 
 COPY . .
 COPY requirements.txt /
-
+COPY segmentation_models_pytorch1 /segmentation_models_pytorch1
 
 RUN pip install --no-cache-dir -U pip
 RUN pip install --no-cache-dir -U -r /requirements.txt

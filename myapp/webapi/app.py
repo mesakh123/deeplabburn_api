@@ -24,7 +24,7 @@ from PIL import Image, ImageDraw, ImageStat,ImageFont
 from torchvision.transforms.functional import to_pil_image
 import torch
 import copy
-import segmentation_models_pytorch as sm
+import segmentation_models_pytorch1 as sm
 import albumentations as albu
 
 ROOT_DIR = os.path.abspath("./")

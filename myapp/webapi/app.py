@@ -75,7 +75,7 @@ def load_model():
     model_folder_path = os.path.abspath("./models") + "/"
     DEVICE = torch.device("cpu")
 
-    model_2_path = os.path.abspath(model_folder_path + "best_model_burn_deeplabv3plus_2.pth")
+    model_2_path = os.path.abspath(model_folder_path + "best_model_burn_deeplabv3plus.pth")
 
     if os.path.exists(model_2_path):
         model_2 = sm.DeepLabV3Plus(encoder_name=ENCODER,encoder_weights=ENCODER_WEIGHTS,classes=1,activation=ACTIVATION)

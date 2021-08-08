@@ -1,0 +1,21 @@
+version: '3'
+services:
+  myapp:
+    container_name: mirle_flask
+    restart: always
+    volumes:
+      - "./myapp:/home/ubuntu/myproject/pressure_sore_api/"
+    build: ./myapp
+    ports:
+      - "8081:8081"
+    command: gunicorn -w 1 -b 0.0.0.0:8081 wsgi:server
+
+
+  nginx:
+    container_name: mirle_nginx
+    restart: always
+    build: ./nginx
+    ports:
+      - "9090:9090"
+    depends_on:
+      - myapp

@@ -245,8 +245,7 @@ def predict_utils(model,image):
     return pr_mask,pixel_numbers
 
 def merge_masks(image,masks1,cls1):
-    for i in range(2):
-        image = apply_mask(image,masks1[...,i],cls1[i])
+    image = apply_mask(image,masks1,cls1[0])
     return image
 
 def convert_image_to_base64(image):

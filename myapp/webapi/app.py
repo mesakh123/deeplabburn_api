@@ -329,6 +329,8 @@ async def predict(version:int, model_name:str, action:str):
         'burn_normal_mask' : None,
         'burn_deep_mask':None,
     }
+    print("predict result : ",len(predict_results))
+    print(predict_results)
     colors = [ [(255,0,0)], [(255,255,255)] ]
     for i in range(len(predict_results)):
         predict_result = predict_results[i]

@@ -8,7 +8,7 @@ opencv-contrib-python
 requests
 tqdm
 flask-wtf
-Flask==2.0.2
+Flask[async]
 nvidia-ml-py3
 pretrainedmodels
 efficientnet_pytorch

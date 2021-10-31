@@ -338,11 +338,11 @@ async def predict(version:int, model_name:str, action:str):
 
         if i==0:
             result['result_pixel'] = pixel
-            result['burn_normal_mask'] = mask
+            result['burn_normal_mask'] = mask.tolist()
         
         elif i==1:
             result['burn_deep_pixel'] = pixel
-            result['burn_deep_mask'] = mask
+            result['burn_deep_mask'] = mask.tolist()
 
 
     result_image = convert_image_to_base64(image)

@@ -260,8 +260,8 @@ async def predict_utils(model,image):
     return pr_mask,pixel_numbers
 
 def merge_masks(image,masks1,cls1):
-    for i in range(2):
-        image = apply_mask(image,masks1[...,i],cls1[i])
+    
+    image = apply_mask(image,masks1,cls1[0])
     return image
 
 def convert_image_to_base64(image):
@@ -330,7 +330,6 @@ async def predict(version:int, model_name:str, action:str):
         'burn_deep_mask':None,
     }
     print("predict result : ",len(predict_results))
-    print(predict_results)
     colors = [ [(255,0,0)], [(255,255,255)] ]
     for i in range(len(predict_results)):
         predict_result = predict_results[i]

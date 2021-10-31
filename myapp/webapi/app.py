@@ -24,8 +24,10 @@ from PIL import Image, ImageDraw, ImageStat,ImageFont
 from torchvision.transforms.functional import to_pil_image
 import torch
 import copy
-import segmentation_models_pytorch1 as sm
+import segmentation_models_pytorch as sm
 import albumentations as albu
+
+import asyncio
 
 ROOT_DIR = os.path.abspath("./")
 sys.path.append(ROOT_DIR)
@@ -34,13 +36,14 @@ sys.path.append(ROOT_DIR)
 np.set_printoptions(threshold=sys.maxsize)
 
 global preprocessor
-global model_2
+global modelBurnNormal, modelBurnDeep
 global font
 global DEVICE
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 1024
 
 MODEL_NAME = "zhang_burn_wound"
+MODEL_NAME_DEEP = "zhang_burn_wound"
 ENCODER = 'resnet101'
 ENCODER_WEIGHTS = 'imagenet'
 ACTIVATION = "sigmoid"
@@ -65,7 +68,8 @@ def get_preprocessing(preprocessing_fn):
     return albu.Compose(_transform)
 
 def load_model():
-    global MODEL_NAME,preprocessor,model_2,font,ENCODER,ENCODER_WEIGHTS,DEVICE,ACTIVATION
+    global MODEL_NAME,preprocessor,modelBurnNormal,font,ENCODER,ENCODER_WEIGHTS,DEVICE,ACTIVATION
+    global MODEL_NAME_DEEP, modelBurnDeep
 
     #load preprocessor
     preprocess_input = sm.encoders.get_preprocessing_fn(ENCODER, ENCODER_WEIGHTS)
@@ -75,14 +79,25 @@ def load_model():
     model_folder_path = os.path.abspath("./models") + "/"
     DEVICE = torch.device("cpu")
 
-    model_2_path = os.path.abspath(model_folder_path + "best_model_burn_deeplabv3plus.pth")
+    modelBurnNormal_path = os.path.abspath(model_folder_path + "best_model_burn_deeplabv3plus.pth")
 
-    if os.path.exists(model_2_path):
-        model_2 = sm.DeepLabV3Plus(encoder_name=ENCODER,encoder_weights=ENCODER_WEIGHTS,classes=1,activation=ACTIVATION)
-        model_2.load_state_dict(torch.load(model_2_path,map_location=torch.device("cpu")))
-        model_2.eval()
+    modelBurnDeep_path = os.path.abspath(model_folder_path + "best_model_deep_burn_deeplabv3plus.pth")
+
+
+    if os.path.exists(modelBurnNormal_path):
+        modelBurnNormal = sm.DeepLabV3Plus(encoder_name=ENCODER,encoder_weights=ENCODER_WEIGHTS,classes=1,activation=ACTIVATION)
+        modelBurnNormal.load_state_dict(torch.load(modelBurnNormal_path,map_location=torch.device("cpu")))
+        modelBurnNormal.eval()
     else:
-        model_2 = None
+        modelBurnNormal = None
+
+    if os.path.exists(modelBurnDeep_path):
+        modelBurnDeep = sm.DeepLabV3Plus(encoder_name=ENCODER,encoder_weights=ENCODER_WEIGHTS,classes=1,activation=ACTIVATION)
+        modelBurnDeep.load_state_dict(torch.load(modelBurnDeep_path,map_location=torch.device("cpu")))
+        modelBurnDeep.eval()
+    else:
+        modelBurnDeep = None
+
 
     #load font
     font_folder_path = os.path.abspath("./webapi") + "/"
@@ -233,7 +248,7 @@ def apply_mask(image, mask, color, alpha=0.5):
 
 
 
-def predict_utils(model,image):
+async def predict_utils(model,image):
 
     #preprocess
     preprocess_image = preprocessor(image=image)['image']
@@ -245,7 +260,8 @@ def predict_utils(model,image):
     return pr_mask,pixel_numbers
 
 def merge_masks(image,masks1,cls1):
-    image = apply_mask(image,masks1,cls1[0])
+    for i in range(2):
+        image = apply_mask(image,masks1[...,i],cls1[i])
     return image
 
 def convert_image_to_base64(image):
@@ -257,42 +273,83 @@ def convert_image_to_base64(image):
 
     return base64_image
 
-def predict_image(image):
-    global model_2,preprocessor
+async def predict_image(model, image):
+    global modelBurnNormal,preprocessor
 
     image = np.asarray(image).astype(np.uint32)
 
     #image_np = resize_image(image,1024,1024)
     image_np = copy.deepcopy(image)
     image1 = copy.deepcopy(image_np)
-    image2 = copy.deepcopy(image_np)
     pixels1 = {}#2 class
 
-    if model_2 is not None:
-        #reep ulceration
-        masks1,pixels1 = predict_utils(model_2,image1)
-        image2 = merge_masks(image2,masks1,[(255,0,0)])
+    if model is not None:
+        masks1,pixels1 = await predict_utils(model,image1)
 
-    return image2,pixels1
+    return pixels1, masks1
 
 
 
 load_model()
 #/v1/model_ps/zhang_burn_wound:predict
 @app.route('/v<int:version>/model_burn_deeplab/<string:model_name>:<string:action>', methods=['POST'])
-def predict(version:int, model_name:str, action:str):
-    if version != 1 or model_name != MODEL_NAME or action != "predict":
+async def predict(version:int, model_name:str, action:str):
+    
+    versions = [1,2]
+
+    if version not in versions or model_name != MODEL_NAME or action != "predict":
         return {"Not implemented", 501}
+
+
+    global modelBurnDeep, modelBurnNormal
+
+
 
     jdata = request.data
     buffer = BytesIO(base64.b64decode(jdata))
     im_pil = Image.open(buffer).convert("RGB")
+    image = np.asarray(im_pil).astype(np.uint32)
 
-    result1,pixels1  = predict_image(im_pil)
-    result1 = convert_image_to_base64(result1)
-    result = {"result_image":result1,"result_pixel":pixels1}
+
+
+    #pixels1, masks1  = predict_image(modelBurnNormal, im_pil)
+
+
+    tasks = [ predict_image(modelBurnNormal, im_pil)]
+    if version ==2:
+        tasks.append(predict_image(modelBurnDeep, im_pil))
+
+
+    predict_results = await asyncio.gather(*tasks)
+
+    result = {
+        "result_image":None,
+        'result_pixel':0,
+        'burn_deep_pixel':0,
+        'burn_normal_mask' : None,
+        'burn_deep_mask':None,
+    }
+    colors = [ [(255,0,0)], [(255,255,255)] ]
+    for i in range(len(predict_results)):
+        predict_result = predict_results[i]
+        pixel , mask = predict_result
+        image = merge_masks(image, mask, colors[i])
+
+        if i==0:
+            result['result_pixel'] = pixel
+            result['burn_normal_mask'] = mask
+        
+        elif i==1:
+            result['burn_deep_pixel'] = pixel
+            result['burn_deep_mask'] = mask
+
+
+    result_image = convert_image_to_base64(image)
+    result['result_image'] = result_image
     json_str = json.dumps(result)
+
     return json_str
+
 
 @app.route('/', methods=['POST','GET'])
 def index():

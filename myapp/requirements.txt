@@ -1,6 +1,6 @@
 opencv-python==4.4.0.44
+asyncio
 pycocotools==2.0.2
-flask==1.1.2
 jsonpickle==1.4.1
 h5py==2.10.0
 matplotlib
@@ -8,6 +8,7 @@ opencv-contrib-python
 requests
 tqdm
 flask-wtf
+Flask==2.0.2
 nvidia-ml-py3
 pretrainedmodels
 efficientnet_pytorch

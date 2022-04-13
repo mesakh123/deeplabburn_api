@@ -1,5 +1,5 @@
-# Mask RCNN Api
-A simple Flask web api to host a Mask RCNN model and do predictions. 
+# Segmentation Api
+A simple Flask web api to host a model and do predictions. 
 
 ## How to use
 In `app.py`, configure your model by replacing the value of the model's name with yours. Copy your model in the `models
